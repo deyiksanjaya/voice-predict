@@ -11,6 +11,7 @@
         .recording-item:active { background-color: #111; }
         .dot-indicator { width: 6px; height: 6px; background-color: #3b82f6; border-radius: 50%; display: inline-block; margin-left: 6px; opacity: 0; transition: opacity 0.5s; }
         .dot-ready { opacity: 1; }
+        .t9-btn:active { background-color: rgba(255,255,255,0.2); }
     </style>
 </head>
 <body class="w-screen h-screen flex flex-col absolute top-0 left-0">
@@ -27,21 +28,26 @@
         </div>
     </div>
 
-    <div id="t9-ui" class="hidden absolute top-0 left-0 w-full h-full bg-black/90 backdrop-blur-sm z-40 flex flex-col justify-end pb-12 px-6">
-        <div id="t9-display" class="text-center text-4xl font-mono tracking-[0.5em] mb-12 h-10 text-white"></div>
-        <div class="grid grid-cols-3 gap-6">
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="1">1</button>
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="2">2</button>
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="3">3</button>
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="4">4</button>
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="5">5</button>
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="6">6</button>
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="7">7</button>
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="8">8</button>
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="9">9</button>
-            <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl text-red-400 font-light" data-val="clear">C</button>
-            <button class="t9-btn bg-white/10 rounded-full aspect-square text-2xl font-light" data-val="0">0</button>
-            <button id="t9-submit" class="bg-blue-600 rounded-full aspect-square text-2xl font-light">✓</button>
+    <div id="t9-ui" class="hidden absolute top-0 left-0 w-full h-full bg-black/80 backdrop-blur-sm z-40 flex-col">
+        <div class="flex-1 w-full" id="t9-dismiss"></div>
+        <div id="t9-container" class="w-full pb-8 px-6 flex justify-end">
+            <div class="bg-[#1c1c1e] p-5 rounded-3xl w-[260px] shadow-2xl border border-gray-800">
+                <div id="t9-display" class="text-right text-2xl font-mono tracking-widest mb-6 h-8 text-white border-b border-gray-800 pb-2"></div>
+                <div class="grid grid-cols-3 gap-3">
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="1">1</button>
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="2">2</button>
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="3">3</button>
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="4">4</button>
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="5">5</button>
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="6">6</button>
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="7">7</button>
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="8">8</button>
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="9">9</button>
+                    <button class="t9-btn bg-red-500/20 text-red-500 rounded-full aspect-square text-lg font-medium" data-val="clear">C</button>
+                    <button class="t9-btn bg-white/5 rounded-full aspect-square text-xl font-light" data-val="0">0</button>
+                    <button id="t9-submit" class="bg-blue-600 rounded-full aspect-square text-xl font-medium">✓</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -63,25 +69,34 @@
                     <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Prediction Template</span>
                     <button id="insert-var-btn" class="text-blue-500 text-sm font-medium">+ Variable</button>
                 </div>
-                <textarea id="template-text" rows="3" placeholder="I knew you would pick [X]" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none resize-none"></textarea>
+                <input type="text" id="custom-title" placeholder="Custom Title (Optional)" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none text-sm">
+                <textarea id="template-text" rows="3" placeholder="I knew you would pick [X]" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none resize-none text-sm"></textarea>
             </div>
 
             <div class="flex flex-col gap-4">
                 <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Word List (One per line)</span>
-                <textarea id="word-list" rows="5" placeholder="Apple&#10;Banana&#10;Cherry" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none resize-none leading-relaxed"></textarea>
+                <textarea id="word-list" rows="5" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none resize-none leading-relaxed text-sm whitespace-pre"></textarea>
             </div>
 
             <div class="flex flex-col gap-4">
-                <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Timing & Noise</span>
+                <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Timing & Environment</span>
                 <div class="bg-[#1c1c1e] rounded-xl px-4 py-3.5 flex flex-col gap-4">
                     <div class="flex justify-between items-center">
                         <span class="text-white text-sm">Prediction Date</span>
-                        <input type="datetime-local" id="base-date" class="bg-transparent text-blue-500 outline-none text-right">
+                        <input type="datetime-local" id="base-date" class="bg-transparent text-blue-500 outline-none text-right text-sm">
                     </div>
                     <div class="w-full h-[1px] bg-gray-800"></div>
                     <div class="flex flex-col gap-2">
                         <span class="text-white text-sm">White Noise Level</span>
-                        <input type="range" id="noise-volume" min="0" max="1" step="0.05" value="0.15" class="w-full accent-blue-500">
+                        <input type="range" id="noise-volume" min="0" max="1" step="0.05" value="0.10" class="w-full accent-blue-500">
+                    </div>
+                    <div class="w-full h-[1px] bg-gray-800"></div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-white text-sm">Keypad Position</span>
+                        <select id="keypad-pos" class="bg-transparent text-blue-500 outline-none text-right text-sm appearance-none">
+                            <option value="right" class="bg-[#1c1c1e]">Bottom Right</option>
+                            <option value="left" class="bg-[#1c1c1e]">Bottom Left</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -109,6 +124,7 @@
             main: document.getElementById('main-ui'),
             settings: document.getElementById('settings-ui'),
             t9: document.getElementById('t9-ui'),
+            t9Container: document.getElementById('t9-container'),
             t9Display: document.getElementById('t9-display'),
             list: document.getElementById('recording-list'),
             dummyList: document.getElementById('dummy-settings-list'),
@@ -116,18 +132,23 @@
             errContent: document.getElementById('error-log-content')
         };
 
+        const defaultMnemonica = [
+            "Four of Clubs", "Two of Hearts", "Seven of Diamonds", "Three of Clubs", "Four of Hearts", "Six of Diamonds", "Ace of Spades", "Five of Hearts", "Nine of Spades", "Two of Spades", "Queen of Hearts", "Three of Diamonds", "Queen of Clubs", "Eight of Hearts", "Six of Spades", "Five of Spades", "Nine of Hearts", "King of Clubs", "Two of Diamonds", "Jack of Hearts", "Three of Spades", "Eight of Spades", "Six of Hearts", "Ten of Clubs", "Five of Diamonds", "King of Diamonds", "Two of Clubs", "Three of Hearts", "Eight of Diamonds", "Five of Clubs", "King of Spades", "Jack of Diamonds", "Eight of Clubs", "Ten of Spades", "King of Hearts", "Jack of Clubs", "Seven of Spades", "Ten of Hearts", "Ace of Diamonds", "Four of Spades", "Seven of Hearts", "Four of Diamonds", "Ace of Clubs", "Nine of Clubs", "Jack of Spades", "Queen of Diamonds", "Seven of Clubs", "Queen of Spades", "Ten of Diamonds", "Six of Clubs", "Ace of Hearts", "Nine of Diamonds"
+        ];
+
+        document.getElementById('word-list').value = defaultMnemonica.join('\n');
+
         let state = {
-            recordings: [],
+            target: { duration: 4, audioUrl: null, isReady: false },
             dummies: [
-                { id: 'd1', name: 'Recording 003', duration: 45 },
-                { id: 'd2', name: 'Recording 002', duration: 125 },
-                { id: 'd3', name: 'Recording 001', duration: 74 }
+                { name: 'Recording 003', duration: 45 },
+                { name: 'Recording 002', duration: 125 },
+                { name: 'Recording 001', duration: 74 }
             ],
             audioCtx: null,
             activeAudio: null,
             activeNoise: null,
-            t9Input: '',
-            baseDate: new Date()
+            t9Input: ''
         };
 
         const initAudio = () => {
@@ -165,7 +186,8 @@
             state.activeAudio = null;
             state.activeNoise = null;
             document.querySelectorAll('.play-btn-active').forEach(btn => {
-                btn.className = 'play-btn w-0 h-0 border-t-[7px] border-t-transparent border-l-[12px] border-l-white border-b-[7px] border-b-transparent ml-2 outline-none';
+                btn.className = 'w-0 h-0 border-t-[7px] border-t-transparent border-l-[12px] border-l-white border-b-[7px] border-b-transparent ml-2 outline-none';
+                btn.classList.remove('play-btn-active');
             });
         };
 
@@ -190,7 +212,7 @@
         };
 
         const formatTime = (dateObj) => {
-            return dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
+            return dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         };
 
         const formatDur = (sec) => {
@@ -203,7 +225,7 @@
             ui.errConsole.classList.remove('hidden');
             ui.errConsole.classList.add('flex');
             const d = document.createElement('div');
-            d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            d.textContent = `[${new Date().toLocaleTimeString('en-US', {hour12:false})}] ${msg}`;
             ui.errContent.appendChild(d);
         };
 
@@ -213,83 +235,72 @@
             ui.errConsole.classList.remove('flex');
         };
 
-        const calculateDates = () => {
+        const renderList = () => {
+            ui.list.innerHTML = '';
             const base = new Date(document.getElementById('base-date').value || Date.now());
-            const items = [];
             
-            state.recordings.forEach(r => {
-                items.push({...r, dateStr: 'Today', timeStr: formatTime(base)});
-            });
+            const customTitle = document.getElementById('custom-title').value.trim();
+            const targetName = customTitle !== '' ? customTitle : `Recording ${String(state.dummies.length + 1).padStart(3, '0')}`;
+            
+            const targetRow = createListElement(targetName, 'Today', formatTime(base), state.target.duration, true, state.target.isReady, state.target.audioUrl);
+            ui.list.appendChild(targetRow);
 
             let currentOffset = base.getTime();
-            state.dummies.forEach((d, i) => {
+            state.dummies.forEach((d) => {
                 currentOffset -= (Math.floor(Math.random() * 120) + 60) * 60000; 
                 const dDate = new Date(currentOffset);
                 const isSameDay = dDate.toDateString() === base.toDateString();
                 const isYesterday = new Date(base.getTime() - 86400000).toDateString() === dDate.toDateString();
                 
-                let dateStr = dDate.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                let dateStr = dDate.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 if (isSameDay) dateStr = 'Today';
                 else if (isYesterday) dateStr = 'Yesterday';
 
-                items.push({
-                    id: d.id,
-                    name: d.name,
-                    dateStr: dateStr,
-                    timeStr: formatTime(dDate),
-                    duration: d.duration,
-                    audioUrl: null,
-                    isReady: true,
-                    isReal: false
-                });
-            });
-            return items;
-        };
-
-        const renderList = () => {
-            ui.list.innerHTML = '';
-            const allItems = calculateDates();
-
-            allItems.forEach(item => {
-                const row = document.createElement('div');
-                row.className = 'recording-item w-full flex justify-between items-center py-3.5 border-b border-gray-900 cursor-pointer';
-                
-                const leftDiv = document.createElement('div');
-                leftDiv.className = 'flex flex-col';
-                
-                const titleSpan = document.createElement('span');
-                titleSpan.className = 'font-medium text-[17px] tracking-wide flex items-center';
-                titleSpan.textContent = item.name;
-                
-                if (item.isReal) {
-                    const dot = document.createElement('span');
-                    dot.className = `dot-indicator ${item.isReady ? 'dot-ready' : ''}`;
-                    dot.id = `dot-${item.id}`;
-                    titleSpan.appendChild(dot);
-                }
-
-                const dateSpan = document.createElement('span');
-                dateSpan.className = 'text-gray-500 text-[13px] mt-0.5';
-                dateSpan.textContent = `${item.dateStr} ${item.timeStr} \u2022 ${formatDur(item.duration)}`;
-                
-                leftDiv.appendChild(titleSpan);
-                leftDiv.appendChild(dateSpan);
-                
-                const rightContainer = document.createElement('div');
-                rightContainer.className = 'flex items-center justify-center w-12 h-12';
-
-                const playBtn = document.createElement('button');
-                playBtn.className = 'play-btn w-0 h-0 border-t-[7px] border-t-transparent border-l-[12px] border-l-white border-b-[7px] border-b-transparent ml-2 outline-none';
-                
-                row.onclick = (e) => {
-                    if(!item.isReal || item.isReady) playItem(item.audioUrl, item.duration, playBtn);
-                };
-
-                rightContainer.appendChild(playBtn);
-                row.appendChild(leftDiv);
-                row.appendChild(rightContainer);
+                const row = createListElement(d.name, dateStr, formatTime(dDate), d.duration, false, true, null);
                 ui.list.appendChild(row);
             });
+        };
+
+        const createListElement = (name, dateStr, timeStr, duration, isTarget, isReady, audioUrl) => {
+            const row = document.createElement('div');
+            row.className = 'recording-item w-full flex justify-between items-center py-3.5 border-b border-gray-900 cursor-pointer';
+            
+            const leftDiv = document.createElement('div');
+            leftDiv.className = 'flex flex-col';
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'font-medium text-[17px] tracking-wide flex items-center';
+            titleSpan.textContent = name;
+            
+            if (isTarget) {
+                const dot = document.createElement('span');
+                dot.className = `dot-indicator ${isReady ? 'dot-ready' : ''}`;
+                dot.id = 'dot-target';
+                titleSpan.appendChild(dot);
+            }
+
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'text-gray-500 text-[13px] mt-0.5';
+            dateSpan.textContent = `${dateStr} ${timeStr} \u2022 ${formatDur(duration)}`;
+            if (isTarget) dateSpan.id = 'info-target';
+            
+            leftDiv.appendChild(titleSpan);
+            leftDiv.appendChild(dateSpan);
+            
+            const rightContainer = document.createElement('div');
+            rightContainer.className = 'flex items-center justify-center w-12 h-12';
+
+            const playBtn = document.createElement('button');
+            playBtn.className = 'w-0 h-0 border-t-[7px] border-t-transparent border-l-[12px] border-l-white border-b-[7px] border-b-transparent ml-2 outline-none';
+            
+            row.onclick = () => {
+                playItem(audioUrl, duration, playBtn);
+            };
+
+            rightContainer.appendChild(playBtn);
+            row.appendChild(leftDiv);
+            row.appendChild(rightContainer);
+            return row;
         };
 
         const renderDummySettings = () => {
@@ -315,7 +326,7 @@
 
                 const del = document.createElement('button');
                 del.innerHTML = '✕';
-                del.className = 'w-10 bg-red-900/30 text-red-500 rounded-lg';
+                del.className = 'w-10 bg-red-900/30 text-red-500 rounded-lg flex items-center justify-center';
                 del.onclick = () => { state.dummies.splice(idx, 1); renderDummySettings(); };
 
                 r.append(n, d, del);
@@ -324,8 +335,8 @@
         };
 
         document.getElementById('add-dummy-btn').onclick = () => {
-            const nextNum = state.dummies.length + state.recordings.length + 1;
-            state.dummies.unshift({ id: Date.now(), name: `Recording ${String(nextNum).padStart(3, '0')}`, duration: 0 });
+            const nextNum = state.dummies.length + 1;
+            state.dummies.unshift({ name: `Recording ${String(nextNum).padStart(3, '0')}`, duration: 0 });
             renderDummySettings();
         };
 
@@ -335,6 +346,16 @@
             t.value = t.value.substring(0, pos) + '[X]' + t.value.substring(t.selectionEnd);
             t.focus();
             t.selectionEnd = pos + 3;
+        };
+
+        document.getElementById('keypad-pos').onchange = (e) => {
+            if (e.target.value === 'right') {
+                ui.t9Container.classList.add('justify-end');
+                ui.t9Container.classList.remove('justify-start');
+            } else {
+                ui.t9Container.classList.add('justify-start');
+                ui.t9Container.classList.remove('justify-end');
+            }
         };
 
         let pressTimer;
@@ -350,21 +371,33 @@
 
         let tapTimer;
         let taps = 0;
-        document.getElementById('record-trigger').onclick = () => {
+        const handleTap = (e) => {
+            if(e.type === 'touchstart') e.preventDefault();
             taps++;
             clearTimeout(tapTimer);
             tapTimer = setTimeout(() => {
                 if (taps >= 2) {
                     ui.t9.classList.remove('hidden');
+                    ui.t9.classList.add('flex');
                     state.t9Input = '';
                     ui.t9Display.textContent = '';
                 }
                 taps = 0;
-            }, 300);
+            }, 350);
+        };
+        
+        const recTrigger = document.getElementById('record-trigger');
+        recTrigger.addEventListener('touchstart', handleTap, {passive: false});
+        recTrigger.addEventListener('mousedown', handleTap);
+
+        document.getElementById('t9-dismiss').onclick = () => {
+            ui.t9.classList.add('hidden');
+            ui.t9.classList.remove('flex');
         };
 
         document.querySelectorAll('.t9-btn').forEach(btn => {
-            btn.onclick = () => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
                 initAudio();
                 const v = btn.dataset.val;
                 if (v === 'clear') state.t9Input = '';
@@ -374,32 +407,22 @@
         });
 
         const executeGeneration = async (wordIndex) => {
-            const apiKey = document.getElementById('api-key').value;
-            const voiceId = document.getElementById('voice-id').value;
-            const template = document.getElementById('template-text').value;
-            const words = document.getElementById('word-list').value.split('\n').map(w => w.trim()).filter(w => w);
+            const apiKey = document.getElementById('api-key').value.trim();
+            const voiceId = document.getElementById('voice-id').value.trim();
+            let template = document.getElementById('template-text').value.trim();
+            if (!template) template = "I knew you would pick [X]";
+            
+            const wordsList = document.getElementById('word-list').value;
+            const words = wordsList ? wordsList.split('\n').map(w => w.trim()).filter(w => w) : [];
 
-            if (!apiKey || !voiceId || !template || words.length === 0) {
-                logErr('Missing configuration parameters. Check API, Voice ID, Template, or Word List.');
+            if (!apiKey || !voiceId || words.length === 0) {
+                logErr('Missing configuration. Check API Key, Voice ID, or Word List.');
                 return;
             }
 
             const safeIndex = (wordIndex > 0 && wordIndex <= words.length) ? wordIndex - 1 : 0;
             const selectedWord = words[safeIndex];
             const finalSpeech = template.replace(/\[X\]/g, selectedWord);
-
-            const nextNum = state.dummies.length + state.recordings.length + 1;
-            const newRec = {
-                id: 'r' + Date.now(),
-                name: `Recording ${String(nextNum).padStart(3, '0')}`,
-                duration: 4, 
-                audioUrl: null,
-                isReady: false,
-                isReal: true
-            };
-
-            state.recordings.unshift(newRec);
-            renderList();
 
             try {
                 const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
@@ -408,31 +431,37 @@
                     body: JSON.stringify({ text: finalSpeech, model_id: "eleven_multilingual_v2" })
                 });
 
-                if (!res.ok) throw new Error(`API Error ${res.status}`);
+                if (!res.ok) throw new Error(`ElevenLabs API Error: ${res.status}`);
                 
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 
                 const tempAudio = new Audio(url);
                 tempAudio.onloadedmetadata = () => {
-                    const actualRec = state.recordings.find(r => r.id === newRec.id);
-                    if (actualRec) {
-                        actualRec.audioUrl = url;
-                        actualRec.duration = Math.ceil(tempAudio.duration);
-                        actualRec.isReady = true;
-                        
-                        const dot = document.getElementById(`dot-${newRec.id}`);
-                        if(dot) dot.classList.add('dot-ready');
-                        renderList(); 
+                    state.target.audioUrl = url;
+                    state.target.duration = Math.ceil(tempAudio.duration);
+                    state.target.isReady = true;
+                    
+                    const dot = document.getElementById('dot-target');
+                    if(dot) dot.classList.add('dot-ready');
+                    
+                    const info = document.getElementById('info-target');
+                    if(info) {
+                        const base = new Date(document.getElementById('base-date').value || Date.now());
+                        info.textContent = `Today ${formatTime(base)} \u2022 ${formatDur(state.target.duration)}`;
                     }
+                    
+                    renderList();
                 };
             } catch (err) {
                 logErr(err.message);
             }
         };
 
-        document.getElementById('t9-submit').onclick = () => {
+        document.getElementById('t9-submit').onclick = (e) => {
+            e.stopPropagation();
             ui.t9.classList.add('hidden');
+            ui.t9.classList.remove('flex');
             const idx = parseInt(state.t9Input) || 1;
             executeGeneration(idx);
         };
