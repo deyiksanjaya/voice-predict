@@ -68,6 +68,7 @@
             <div class="flex flex-col gap-4">
                 <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">ElevenLabs Setup</span>
                 <input type="password" id="api-key" placeholder="API Key" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none">
+                <button id="record-btn" class="w-full bg-[#1c1c1e] text-blue-500 rounded-xl px-4 py-3.5 font-medium border border-gray-800">Tap to Record Voice Clone</button>
                 <input type="text" id="voice-id" placeholder="Voice ID" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none">
             </div>
 
@@ -118,11 +119,11 @@
                     <div class="w-full h-[1px] bg-gray-800"></div>
                     <div class="flex flex-col gap-2">
                         <span class="text-white text-sm">Noise Volume</span>
-                        <input type="range" id="noise-volume" min="1" max="100" value="30" class="w-full accent-blue-500">
+                        <input type="range" id="noise-volume" min="1" max="100" class="w-full accent-blue-500">
                     </div>
                     <div class="flex flex-col gap-2">
                         <span class="text-white text-sm">Noise Intensity</span>
-                        <input type="range" id="noise-intensity" min="1" max="100" value="40" class="w-full accent-blue-500">
+                        <input type="range" id="noise-intensity" min="1" max="100" class="w-full accent-blue-500">
                     </div>
                 </div>
             </div>
@@ -159,14 +160,23 @@
             modeBtnManual: document.getElementById('mode-btn-manual'),
             modeBtnAuto: document.getElementById('mode-btn-auto'),
             secManual: document.getElementById('section-manual'),
-            secAuto: document.getElementById('section-auto')
+            secAuto: document.getElementById('section-auto'),
+            apiKey: document.getElementById('api-key'),
+            voiceId: document.getElementById('voice-id'),
+            injectId: document.getElementById('inject-id'),
+            customTitle: document.getElementById('custom-title'),
+            templateText: document.getElementById('template-text'),
+            wordList: document.getElementById('word-list'),
+            baseDate: document.getElementById('base-date'),
+            noiseVolume: document.getElementById('noise-volume'),
+            noiseIntensity: document.getElementById('noise-intensity'),
+            keypadPos: document.getElementById('keypad-pos'),
+            recordBtn: document.getElementById('record-btn')
         };
 
         const defaultMnemonica = [
             "Four of Clubs", "Two of Hearts", "Seven of Diamonds", "Three of Clubs", "Four of Hearts", "Six of Diamonds", "Ace of Spades", "Five of Hearts", "Nine of Spades", "Two of Spades", "Queen of Hearts", "Three of Diamonds", "Queen of Clubs", "Eight of Hearts", "Six of Spades", "Five of Spades", "Nine of Hearts", "King of Clubs", "Two of Diamonds", "Jack of Hearts", "Three of Spades", "Eight of Spades", "Six of Hearts", "Ten of Clubs", "Five of Diamonds", "King of Diamonds", "Two of Clubs", "Three of Hearts", "Eight of Diamonds", "Five of Clubs", "King of Spades", "Jack of Diamonds", "Eight of Clubs", "Ten of Spades", "King of Hearts", "Jack of Clubs", "Seven of Spades", "Ten of Hearts", "Ace of Diamonds", "Four of Spades", "Seven of Hearts", "Four of Diamonds", "Ace of Clubs", "Nine of Clubs", "Jack of Spades", "Queen of Diamonds", "Seven of Clubs", "Queen of Spades", "Ten of Diamonds", "Six of Clubs", "Ace of Hearts", "Nine of Diamonds"
         ];
-
-        document.getElementById('word-list').value = defaultMnemonica.join('\n');
 
         let state = {
             mode: 'manual',
@@ -184,28 +194,122 @@
             lastFetchVal: null
         };
 
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        const saveState = () => {
+            const dataToSave = {
+                mode: state.mode,
+                dummies: state.dummies,
+                apiKey: ui.apiKey.value,
+                voiceId: ui.voiceId.value,
+                injectId: ui.injectId.value,
+                customTitle: ui.customTitle.value,
+                templateText: ui.templateText.value,
+                wordList: ui.wordList.value,
+                baseDate: ui.baseDate.value,
+                noiseVolume: ui.noiseVolume.value,
+                noiseIntensity: ui.noiseIntensity.value,
+                keypadPos: ui.keypadPos.value
+            };
+            localStorage.setItem('voicePredictorData', JSON.stringify(dataToSave));
+        };
+
+        const loadState = () => {
+            const savedData = localStorage.getItem('voicePredictorData');
+            if (savedData) {
+                try {
+                    const parsed = JSON.parse(savedData);
+                    state.mode = parsed.mode || 'manual';
+                    state.dummies = parsed.dummies || state.dummies;
+                    ui.apiKey.value = parsed.apiKey || '';
+                    ui.voiceId.value = parsed.voiceId || '';
+                    ui.injectId.value = parsed.injectId || '';
+                    ui.customTitle.value = parsed.customTitle || '';
+                    ui.templateText.value = parsed.templateText || '';
+                    ui.wordList.value = parsed.wordList !== undefined ? parsed.wordList : defaultMnemonica.join('\n');
+                    ui.baseDate.value = parsed.baseDate || '';
+                    ui.noiseVolume.value = parsed.noiseVolume || 30;
+                    ui.noiseIntensity.value = parsed.noiseIntensity || 40;
+                    ui.keypadPos.value = parsed.keypadPos || 'right';
+                } catch (e) {
+                    ui.wordList.value = defaultMnemonica.join('\n');
+                }
+            } else {
+                ui.wordList.value = defaultMnemonica.join('\n');
+                ui.noiseVolume.value = 30;
+                ui.noiseIntensity.value = 40;
+                ui.keypadPos.value = 'right';
+            }
+
+            if (!ui.baseDate.value) {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                ui.baseDate.value = now.toISOString().slice(0,16);
+            }
+
+            applyModeUI();
+            applyKeypadPos();
+        };
+
+        const setupSaveListeners = () => {
+            const inputs = [ui.apiKey, ui.voiceId, ui.injectId, ui.customTitle, ui.templateText, ui.wordList, ui.baseDate, ui.noiseVolume, ui.noiseIntensity, ui.keypadPos];
+            inputs.forEach(input => {
+                input.addEventListener('change', saveState);
+                input.addEventListener('input', saveState); 
+            });
+        };
+
+        const applyModeUI = () => {
+            if (state.mode === 'manual') {
+                ui.modeBtnManual.classList.replace('text-gray-500', 'text-white');
+                ui.modeBtnManual.classList.add('bg-gray-800');
+                ui.modeBtnAuto.classList.replace('text-white', 'text-gray-500');
+                ui.modeBtnAuto.classList.remove('bg-gray-800');
+                ui.secManual.classList.remove('hidden');
+                ui.secManual.classList.add('flex');
+                ui.secAuto.classList.add('hidden');
+                ui.secAuto.classList.remove('flex');
+            } else {
+                ui.modeBtnAuto.classList.replace('text-gray-500', 'text-white');
+                ui.modeBtnAuto.classList.add('bg-gray-800');
+                ui.modeBtnManual.classList.replace('text-white', 'text-gray-500');
+                ui.modeBtnManual.classList.remove('bg-gray-800');
+                ui.secAuto.classList.remove('hidden');
+                ui.secAuto.classList.add('flex');
+                ui.secManual.classList.add('hidden');
+                ui.secManual.classList.remove('flex');
+            }
+        };
+
+        const applyKeypadPos = () => {
+            if (ui.keypadPos.value === 'right') {
+                ui.t9Container.classList.add('justify-end');
+                ui.t9Container.classList.remove('justify-start');
+            } else {
+                ui.t9Container.classList.add('justify-start');
+                ui.t9Container.classList.remove('justify-end');
+            }
+        };
+
         ui.modeBtnManual.onclick = () => {
             state.mode = 'manual';
-            ui.modeBtnManual.classList.replace('text-gray-500', 'text-white');
-            ui.modeBtnManual.classList.add('bg-gray-800');
-            ui.modeBtnAuto.classList.replace('text-white', 'text-gray-500');
-            ui.modeBtnAuto.classList.remove('bg-gray-800');
-            ui.secManual.classList.remove('hidden');
-            ui.secManual.classList.add('flex');
-            ui.secAuto.classList.add('hidden');
-            ui.secAuto.classList.remove('flex');
+            resetTargetState();
+            applyModeUI();
+            saveState();
         };
 
         ui.modeBtnAuto.onclick = () => {
             state.mode = 'integration';
-            ui.modeBtnAuto.classList.replace('text-gray-500', 'text-white');
-            ui.modeBtnAuto.classList.add('bg-gray-800');
-            ui.modeBtnManual.classList.replace('text-white', 'text-gray-500');
-            ui.modeBtnManual.classList.remove('bg-gray-800');
-            ui.secAuto.classList.remove('hidden');
-            ui.secAuto.classList.add('flex');
-            ui.secManual.classList.add('hidden');
-            ui.secManual.classList.remove('flex');
+            resetTargetState();
+            applyModeUI();
+            saveState();
+        };
+
+        ui.keypadPos.onchange = (e) => {
+            applyKeypadPos();
+            saveState();
         };
 
         const initAudio = () => {
@@ -226,14 +330,14 @@
             
             const filter = state.audioCtx.createBiquadFilter();
             filter.type = 'lowpass';
-            const rawIntensity = parseFloat(document.getElementById('noise-intensity').value);
+            const rawIntensity = parseFloat(ui.noiseIntensity.value);
             const minFreq = 100;
             const maxFreq = 6000;
             const mappedFreq = minFreq + (rawIntensity / 100) * (maxFreq - minFreq);
             filter.frequency.value = mappedFreq;
             
             const gain = state.audioCtx.createGain();
-            const rawVol = parseFloat(document.getElementById('noise-volume').value);
+            const rawVol = parseFloat(ui.noiseVolume.value);
             const minVol = 0.001;
             const maxVol = 0.08;
             const mappedVol = minVol + Math.pow(rawVol / 100, 2) * (maxVol - minVol);
@@ -307,9 +411,9 @@
 
         const renderList = () => {
             ui.list.innerHTML = '';
-            const base = new Date(document.getElementById('base-date').value || Date.now());
+            const base = new Date(ui.baseDate.value || Date.now());
             
-            const customTitle = document.getElementById('custom-title').value.trim();
+            const customTitle = ui.customTitle.value.trim();
             const targetName = customTitle !== '' ? customTitle : `Recording ${String(state.dummies.length + 1).padStart(3, '0')}`;
             
             const targetRow = createListElement(targetName, 'Today', formatTime(base), state.target.duration, true, state.target.isReady, state.target.audioUrl);
@@ -380,7 +484,7 @@
                 n.type = 'text';
                 n.value = dummy.name;
                 n.className = 'flex-1 bg-[#1c1c1e] rounded-lg px-3 py-3 text-white outline-none text-sm';
-                n.onchange = e => state.dummies[idx].name = e.target.value;
+                n.onchange = e => { state.dummies[idx].name = e.target.value; saveState(); };
 
                 const d = document.createElement('input');
                 d.type = 'text';
@@ -388,13 +492,16 @@
                 d.className = 'w-20 bg-[#1c1c1e] rounded-lg px-3 py-3 text-white outline-none text-sm text-center';
                 d.onchange = e => {
                     const pts = e.target.value.split(':');
-                    if(pts.length === 2) state.dummies[idx].duration = (parseInt(pts[0])*60) + parseInt(pts[1]);
+                    if(pts.length === 2) {
+                        state.dummies[idx].duration = (parseInt(pts[0])*60) + parseInt(pts[1]);
+                        saveState();
+                    }
                 };
 
                 const del = document.createElement('button');
                 del.innerHTML = '✕';
                 del.className = 'w-10 bg-red-900/30 text-red-500 rounded-lg flex items-center justify-center';
-                del.onclick = () => { state.dummies.splice(idx, 1); renderDummySettings(); };
+                del.onclick = () => { state.dummies.splice(idx, 1); renderDummySettings(); saveState(); };
 
                 r.append(n, d, del);
                 ui.dummyList.appendChild(r);
@@ -405,28 +512,19 @@
             const nextNum = state.dummies.length + 1;
             state.dummies.unshift({ name: `Recording ${String(nextNum).padStart(3, '0')}`, duration: 0 });
             renderDummySettings();
+            saveState();
         };
 
         document.getElementById('insert-var-btn').onclick = () => {
-            const t = document.getElementById('template-text');
-            const pos = t.selectionStart;
-            t.value = t.value.substring(0, pos) + '[X]' + t.value.substring(t.selectionEnd);
-            t.focus();
-            t.selectionEnd = pos + 3;
-        };
-
-        document.getElementById('keypad-pos').onchange = (e) => {
-            if (e.target.value === 'right') {
-                ui.t9Container.classList.add('justify-end');
-                ui.t9Container.classList.remove('justify-start');
-            } else {
-                ui.t9Container.classList.add('justify-start');
-                ui.t9Container.classList.remove('justify-end');
-            }
+            const pos = ui.templateText.selectionStart;
+            ui.templateText.value = ui.templateText.value.substring(0, pos) + '[X]' + ui.templateText.value.substring(ui.templateText.selectionEnd);
+            ui.templateText.focus();
+            ui.templateText.selectionEnd = pos + 3;
+            saveState();
         };
 
         document.getElementById('test-inject-btn').onclick = async () => {
-            const injectId = document.getElementById('inject-id').value.trim();
+            const injectId = ui.injectId.value.trim();
             if (!injectId) {
                 logErr('Inject ID empty');
                 return;
@@ -442,6 +540,75 @@
             }
         };
 
+        ui.recordBtn.addEventListener('click', async () => {
+            const apiKey = ui.apiKey.value.trim();
+            if (!apiKey) {
+                logErr("API Key required to clone");
+                return;
+            }
+
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = e => {
+                        if (e.data.size > 0) audioChunks.push(e.data);
+                    };
+
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        stream.getTracks().forEach(track => track.stop());
+                        await uploadVoiceClone(apiKey, audioBlob);
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    ui.recordBtn.textContent = "Recording... Tap to Stop";
+                    ui.recordBtn.classList.replace('text-blue-500', 'text-red-500');
+                } catch (err) {
+                    logErr("Microphone access denied");
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                ui.recordBtn.textContent = "Processing Clone...";
+                ui.recordBtn.classList.replace('text-red-500', 'text-blue-500');
+                ui.recordBtn.disabled = true;
+            }
+        });
+
+        async function uploadVoiceClone(apiKey, blob) {
+            logErr("Uploading voice clone...");
+            const formData = new FormData();
+            formData.append('name', 'Live Clone ' + Date.now());
+            formData.append('files', blob, 'sample.webm');
+
+            try {
+                const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+                    method: 'POST',
+                    headers: { 'xi-api-key': apiKey },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail?.message || "Upload failed");
+                }
+
+                const data = await response.json();
+                ui.voiceId.value = data.voice_id;
+                saveState();
+                logErr("Voice cloned successfully!");
+            } catch (err) {
+                logErr(`Clone failed: ${err.message}`);
+            } finally {
+                ui.recordBtn.textContent = "Tap to Record Voice Clone";
+                ui.recordBtn.disabled = false;
+            }
+        }
+
         const resetTargetState = () => {
             state.target.isReady = false;
             state.target.audioUrl = null;
@@ -450,7 +617,7 @@
 
         const pollIntegration = async () => {
             if (state.pollingTimer) clearInterval(state.pollingTimer);
-            const injectId = document.getElementById('inject-id').value.trim();
+            const injectId = ui.injectId.value.trim();
             if (!injectId) return;
 
             const url = `https://11z.co/_w/${injectId}/selection?source=google`;
@@ -532,10 +699,10 @@
         });
 
         const executeGeneration = async (inputValue, isIntegration = false) => {
-            const apiKey = document.getElementById('api-key').value.trim();
-            const voiceId = document.getElementById('voice-id').value.trim();
+            const apiKey = ui.apiKey.value.trim();
+            const voiceId = ui.voiceId.value.trim();
             
-            let template = document.getElementById('template-text').value.trim();
+            let template = ui.templateText.value.trim();
             if (!template) template = "I knew you would pick [X]";
             
             let selectedWord = "nothing";
@@ -543,7 +710,7 @@
             if (isIntegration) {
                 selectedWord = inputValue;
             } else {
-                const wordsList = document.getElementById('word-list').value;
+                const wordsList = ui.wordList.value;
                 const words = wordsList ? wordsList.split('\n').map(w => w.trim()).filter(w => w) : [];
                 const wordIndex = parseInt(inputValue) || 1;
                 const safeIndex = (wordIndex > 0 && wordIndex <= words.length) ? wordIndex - 1 : 0;
@@ -589,10 +756,8 @@
             executeGeneration(state.t9Input, false);
         };
 
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        document.getElementById('base-date').value = now.toISOString().slice(0,16);
-        
+        loadState();
+        setupSaveListeners();
         renderList();
     </script>
 </body>
