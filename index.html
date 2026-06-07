@@ -106,6 +106,7 @@
                         <input type="text" id="inject-id" placeholder="Inject ID" class="flex-1 bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none text-sm">
                         <button id="test-inject-btn" class="bg-[#1c1c1e] text-blue-500 px-4 rounded-xl font-medium border border-gray-800 text-sm">Test</button>
                     </div>
+                    <div id="inject-result" class="text-xs hidden px-2 font-medium"></div>
                 </div>
             </div>
 
@@ -171,7 +172,8 @@
             noiseVolume: document.getElementById('noise-volume'),
             noiseIntensity: document.getElementById('noise-intensity'),
             keypadPos: document.getElementById('keypad-pos'),
-            recordBtn: document.getElementById('record-btn')
+            recordBtn: document.getElementById('record-btn'),
+            injectResult: document.getElementById('inject-result')
         };
 
         const defaultMnemonica = [
@@ -525,18 +527,24 @@
 
         document.getElementById('test-inject-btn').onclick = async () => {
             const injectId = ui.injectId.value.trim();
+            ui.injectResult.classList.remove('hidden');
             if (!injectId) {
-                logErr('Inject ID empty');
+                ui.injectResult.className = 'text-xs text-red-500 px-2 font-medium';
+                ui.injectResult.textContent = 'Inject ID empty';
                 return;
             }
-            logErr('Testing connection...');
+            ui.injectResult.className = 'text-xs text-blue-500 px-2 font-medium';
+            ui.injectResult.textContent = 'Connecting...';
             try {
                 const res = await fetch(`https://11z.co/_w/${injectId}/selection?source=google`);
                 if (!res.ok) throw new Error('Fetch failed');
-                const text = await res.text();
-                logErr(`Success: Received "${text.trim()}"`);
+                const data = await res.json();
+                const val = data.value || '';
+                ui.injectResult.className = 'text-xs text-green-500 px-2 font-medium';
+                ui.injectResult.textContent = `Success: ${val}`;
             } catch (err) {
-                logErr(`Error: ${err.message}`);
+                ui.injectResult.className = 'text-xs text-red-500 px-2 font-medium';
+                ui.injectResult.textContent = `Error: ${err.message}`;
             }
         };
 
@@ -623,14 +631,18 @@
             const url = `https://11z.co/_w/${injectId}/selection?source=google`;
             try {
                 const res = await fetch(url);
-                if (res.ok) state.lastFetchVal = (await res.text()).trim();
+                if (res.ok) {
+                    const data = await res.json();
+                    state.lastFetchVal = data.value ? data.value.trim() : null;
+                }
             } catch (e) {}
 
             state.pollingTimer = setInterval(async () => {
                 try {
                     const res = await fetch(url);
                     if (res.ok) {
-                        const currentVal = (await res.text()).trim();
+                        const data = await res.json();
+                        const currentVal = data.value ? data.value.trim() : null;
                         if (currentVal && currentVal !== state.lastFetchVal) {
                             clearInterval(state.pollingTimer);
                             resetTargetState();
@@ -656,6 +668,7 @@
         document.getElementById('close-settings').onclick = () => {
             ui.settings.classList.add('hidden');
             ui.main.classList.remove('hidden');
+            ui.injectResult.classList.add('hidden');
             renderList();
             if (state.mode === 'integration') pollIntegration();
         };
