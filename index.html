@@ -118,11 +118,11 @@
                     <div class="w-full h-[1px] bg-gray-800"></div>
                     <div class="flex flex-col gap-2">
                         <span class="text-white text-sm">Noise Volume</span>
-                        <input type="range" id="noise-volume" min="0" max="8" step="0.5" value="3" class="w-full accent-blue-500">
+                        <input type="range" id="noise-volume" min="1" max="100" value="30" class="w-full accent-blue-500">
                     </div>
                     <div class="flex flex-col gap-2">
                         <span class="text-white text-sm">Noise Intensity</span>
-                        <input type="range" id="noise-intensity" min="100" max="10000" step="100" value="4000" class="w-full accent-blue-500">
+                        <input type="range" id="noise-intensity" min="1" max="100" value="40" class="w-full accent-blue-500">
                     </div>
                 </div>
             </div>
@@ -226,10 +226,18 @@
             
             const filter = state.audioCtx.createBiquadFilter();
             filter.type = 'lowpass';
-            filter.frequency.value = parseFloat(document.getElementById('noise-intensity').value);
+            const rawIntensity = parseFloat(document.getElementById('noise-intensity').value);
+            const minFreq = 100;
+            const maxFreq = 6000;
+            const mappedFreq = minFreq + (rawIntensity / 100) * (maxFreq - minFreq);
+            filter.frequency.value = mappedFreq;
             
             const gain = state.audioCtx.createGain();
-            gain.gain.value = parseFloat(document.getElementById('noise-volume').value);
+            const rawVol = parseFloat(document.getElementById('noise-volume').value);
+            const minVol = 0.001;
+            const maxVol = 0.08;
+            const mappedVol = minVol + Math.pow(rawVol / 100, 2) * (maxVol - minVol);
+            gain.gain.value = mappedVol;
             
             noise.connect(filter);
             filter.connect(gain);
@@ -341,6 +349,7 @@
             if (isTarget && !isReady) durText = durText.replace(':', ' ');
             
             dateSpan.textContent = `${dateStr} ${timeStr} \u2022 ${durText}`;
+            if (isTarget) dateSpan.id = 'info-target';
             
             leftDiv.appendChild(titleSpan);
             leftDiv.appendChild(dateSpan);
@@ -352,7 +361,7 @@
             playBtn.className = 'w-0 h-0 border-t-[7px] border-t-transparent border-l-[12px] border-l-white border-b-[7px] border-b-transparent ml-2 outline-none';
             
             row.onclick = () => {
-                playItem(audioUrl, duration, playBtn);
+                if(!isTarget || isReady) playItem(audioUrl, duration, playBtn);
             };
 
             rightContainer.appendChild(playBtn);
@@ -433,6 +442,12 @@
             }
         };
 
+        const resetTargetState = () => {
+            state.target.isReady = false;
+            state.target.audioUrl = null;
+            renderList();
+        };
+
         const pollIntegration = async () => {
             if (state.pollingTimer) clearInterval(state.pollingTimer);
             const injectId = document.getElementById('inject-id').value.trim();
@@ -451,6 +466,7 @@
                         const currentVal = (await res.text()).trim();
                         if (currentVal && currentVal !== state.lastFetchVal) {
                             clearInterval(state.pollingTimer);
+                            resetTargetState();
                             executeGeneration(currentVal, true);
                         }
                     }
@@ -569,6 +585,7 @@
             e.stopPropagation();
             ui.t9.classList.add('hidden');
             ui.t9.classList.remove('flex');
+            resetTargetState();
             executeGeneration(state.t9Input, false);
         };
 
