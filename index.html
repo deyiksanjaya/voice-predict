@@ -9,8 +9,6 @@
         * { -webkit-tap-highlight-color: transparent; }
         .recording-item { transition: background-color 0.2s; }
         .recording-item:active { background-color: #111; }
-        .dot-indicator { width: 6px; height: 6px; background-color: #3b82f6; border-radius: 50%; display: inline-block; margin-left: 6px; opacity: 0; transition: opacity 0.5s; }
-        .dot-ready { opacity: 1; }
         .t9-btn:active { background-color: rgba(255,255,255,0.2); }
     </style>
 </head>
@@ -58,6 +56,15 @@
         </div>
         
         <div class="px-6 py-6 flex flex-col gap-8 mb-10">
+            
+            <div class="flex flex-col gap-4">
+                <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Operation Mode</span>
+                <div class="flex bg-[#1c1c1e] rounded-xl p-1">
+                    <button id="mode-btn-manual" class="flex-1 bg-gray-800 text-white rounded-lg py-2.5 text-sm font-medium transition-all">Manual (T9)</button>
+                    <button id="mode-btn-auto" class="flex-1 text-gray-500 rounded-lg py-2.5 text-sm font-medium transition-all">Integration</button>
+                </div>
+            </div>
+
             <div class="flex flex-col gap-4">
                 <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">ElevenLabs Setup</span>
                 <input type="password" id="api-key" placeholder="API Key" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none">
@@ -73,9 +80,32 @@
                 <textarea id="template-text" rows="3" placeholder="I knew you would pick [X]" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none resize-none text-sm"></textarea>
             </div>
 
-            <div class="flex flex-col gap-4">
-                <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Word List (One per line)</span>
-                <textarea id="word-list" rows="5" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none resize-none leading-relaxed text-sm whitespace-pre"></textarea>
+            <div id="section-manual" class="flex flex-col gap-8">
+                <div class="flex flex-col gap-4">
+                    <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Word List (One per line)</span>
+                    <textarea id="word-list" rows="5" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none resize-none leading-relaxed text-sm whitespace-pre"></textarea>
+                </div>
+                <div class="flex flex-col gap-4">
+                    <div class="bg-[#1c1c1e] rounded-xl px-4 py-3.5 flex flex-col gap-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-white text-sm">Keypad Position</span>
+                            <select id="keypad-pos" class="bg-transparent text-blue-500 outline-none text-right text-sm appearance-none">
+                                <option value="right" class="bg-[#1c1c1e]">Bottom Right</option>
+                                <option value="left" class="bg-[#1c1c1e]">Bottom Left</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-auto" class="hidden flex-col gap-8">
+                <div class="flex flex-col gap-4">
+                    <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">External Inject</span>
+                    <div class="flex gap-2 w-full">
+                        <input type="text" id="inject-id" placeholder="Inject ID" class="flex-1 bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none text-sm">
+                        <button id="test-inject-btn" class="bg-[#1c1c1e] text-blue-500 px-4 rounded-xl font-medium border border-gray-800 text-sm">Test</button>
+                    </div>
+                </div>
             </div>
 
             <div class="flex flex-col gap-4">
@@ -87,16 +117,12 @@
                     </div>
                     <div class="w-full h-[1px] bg-gray-800"></div>
                     <div class="flex flex-col gap-2">
-                        <span class="text-white text-sm">White Noise Level</span>
-                        <input type="range" id="noise-volume" min="0" max="1" step="0.05" value="0.10" class="w-full accent-blue-500">
+                        <span class="text-white text-sm">Noise Volume</span>
+                        <input type="range" id="noise-volume" min="0" max="8" step="0.5" value="3" class="w-full accent-blue-500">
                     </div>
-                    <div class="w-full h-[1px] bg-gray-800"></div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-white text-sm">Keypad Position</span>
-                        <select id="keypad-pos" class="bg-transparent text-blue-500 outline-none text-right text-sm appearance-none">
-                            <option value="right" class="bg-[#1c1c1e]">Bottom Right</option>
-                            <option value="left" class="bg-[#1c1c1e]">Bottom Left</option>
-                        </select>
+                    <div class="flex flex-col gap-2">
+                        <span class="text-white text-sm">Noise Intensity</span>
+                        <input type="range" id="noise-intensity" min="100" max="10000" step="100" value="4000" class="w-full accent-blue-500">
                     </div>
                 </div>
             </div>
@@ -111,7 +137,7 @@
             
             <div id="error-console" class="hidden flex-col gap-3 p-4 bg-red-950/20 border border-red-900/50 rounded-xl mt-4">
                 <div class="flex justify-between items-center">
-                    <span class="text-xs font-bold text-red-500 uppercase tracking-wider">Error Log</span>
+                    <span class="text-xs font-bold text-red-500 uppercase tracking-wider">System Log</span>
                     <button id="clear-errors" class="text-xs text-red-400 font-medium">Clear</button>
                 </div>
                 <div id="error-log-content" class="text-xs font-mono text-red-400 max-h-32 overflow-y-auto flex flex-col gap-1.5 break-words"></div>
@@ -129,7 +155,11 @@
             list: document.getElementById('recording-list'),
             dummyList: document.getElementById('dummy-settings-list'),
             errConsole: document.getElementById('error-console'),
-            errContent: document.getElementById('error-log-content')
+            errContent: document.getElementById('error-log-content'),
+            modeBtnManual: document.getElementById('mode-btn-manual'),
+            modeBtnAuto: document.getElementById('mode-btn-auto'),
+            secManual: document.getElementById('section-manual'),
+            secAuto: document.getElementById('section-auto')
         };
 
         const defaultMnemonica = [
@@ -139,6 +169,7 @@
         document.getElementById('word-list').value = defaultMnemonica.join('\n');
 
         let state = {
+            mode: 'manual',
             target: { duration: 4, audioUrl: null, isReady: false },
             dummies: [
                 { name: 'Recording 003', duration: 45 },
@@ -148,7 +179,33 @@
             audioCtx: null,
             activeAudio: null,
             activeNoise: null,
-            t9Input: ''
+            t9Input: '',
+            pollingTimer: null,
+            lastFetchVal: null
+        };
+
+        ui.modeBtnManual.onclick = () => {
+            state.mode = 'manual';
+            ui.modeBtnManual.classList.replace('text-gray-500', 'text-white');
+            ui.modeBtnManual.classList.add('bg-gray-800');
+            ui.modeBtnAuto.classList.replace('text-white', 'text-gray-500');
+            ui.modeBtnAuto.classList.remove('bg-gray-800');
+            ui.secManual.classList.remove('hidden');
+            ui.secManual.classList.add('flex');
+            ui.secAuto.classList.add('hidden');
+            ui.secAuto.classList.remove('flex');
+        };
+
+        ui.modeBtnAuto.onclick = () => {
+            state.mode = 'integration';
+            ui.modeBtnAuto.classList.replace('text-gray-500', 'text-white');
+            ui.modeBtnAuto.classList.add('bg-gray-800');
+            ui.modeBtnManual.classList.replace('text-white', 'text-gray-500');
+            ui.modeBtnManual.classList.remove('bg-gray-800');
+            ui.secAuto.classList.remove('hidden');
+            ui.secAuto.classList.add('flex');
+            ui.secManual.classList.add('hidden');
+            ui.secManual.classList.remove('flex');
         };
 
         const initAudio = () => {
@@ -167,12 +224,17 @@
             noise.buffer = noiseBuffer;
             noise.loop = true;
             
+            const filter = state.audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = parseFloat(document.getElementById('noise-intensity').value);
+            
             const gain = state.audioCtx.createGain();
             gain.gain.value = parseFloat(document.getElementById('noise-volume').value);
             
-            noise.connect(gain);
+            noise.connect(filter);
+            filter.connect(gain);
             gain.connect(state.audioCtx.destination);
-            return { source: noise, gain: gain };
+            return { source: noise, filter: filter, gain: gain };
         };
 
         const stopPlayback = () => {
@@ -269,20 +331,16 @@
             leftDiv.className = 'flex flex-col';
             
             const titleSpan = document.createElement('span');
-            titleSpan.className = 'font-medium text-[17px] tracking-wide flex items-center';
+            titleSpan.className = 'font-medium text-[17px] tracking-wide';
             titleSpan.textContent = name;
-            
-            if (isTarget) {
-                const dot = document.createElement('span');
-                dot.className = `dot-indicator ${isReady ? 'dot-ready' : ''}`;
-                dot.id = 'dot-target';
-                titleSpan.appendChild(dot);
-            }
 
             const dateSpan = document.createElement('span');
             dateSpan.className = 'text-gray-500 text-[13px] mt-0.5';
-            dateSpan.textContent = `${dateStr} ${timeStr} \u2022 ${formatDur(duration)}`;
-            if (isTarget) dateSpan.id = 'info-target';
+            
+            let durText = formatDur(duration);
+            if (isTarget && !isReady) durText = durText.replace(':', ' ');
+            
+            dateSpan.textContent = `${dateStr} ${timeStr} \u2022 ${durText}`;
             
             leftDiv.appendChild(titleSpan);
             leftDiv.appendChild(dateSpan);
@@ -358,21 +416,72 @@
             }
         };
 
+        document.getElementById('test-inject-btn').onclick = async () => {
+            const injectId = document.getElementById('inject-id').value.trim();
+            if (!injectId) {
+                logErr('Inject ID empty');
+                return;
+            }
+            logErr('Testing connection...');
+            try {
+                const res = await fetch(`https://11z.co/_w/${injectId}/selection?source=google`);
+                if (!res.ok) throw new Error('Fetch failed');
+                const text = await res.text();
+                logErr(`Success: Received "${text.trim()}"`);
+            } catch (err) {
+                logErr(`Error: ${err.message}`);
+            }
+        };
+
+        const pollIntegration = async () => {
+            if (state.pollingTimer) clearInterval(state.pollingTimer);
+            const injectId = document.getElementById('inject-id').value.trim();
+            if (!injectId) return;
+
+            const url = `https://11z.co/_w/${injectId}/selection?source=google`;
+            try {
+                const res = await fetch(url);
+                if (res.ok) state.lastFetchVal = (await res.text()).trim();
+            } catch (e) {}
+
+            state.pollingTimer = setInterval(async () => {
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const currentVal = (await res.text()).trim();
+                        if (currentVal && currentVal !== state.lastFetchVal) {
+                            clearInterval(state.pollingTimer);
+                            executeGeneration(currentVal, true);
+                        }
+                    }
+                } catch (e) {}
+            }, 2000);
+        };
+
         let pressTimer;
         const trigger = document.getElementById('secret-trigger');
-        trigger.onmousedown = trigger.ontouchstart = () => { pressTimer = setTimeout(() => { ui.main.classList.add('hidden'); ui.settings.classList.remove('hidden'); renderDummySettings(); }, 2000); };
+        trigger.onmousedown = trigger.ontouchstart = () => { 
+            pressTimer = setTimeout(() => { 
+                if (state.pollingTimer) clearInterval(state.pollingTimer);
+                ui.main.classList.add('hidden'); 
+                ui.settings.classList.remove('hidden'); 
+                renderDummySettings(); 
+            }, 2000); 
+        };
         trigger.onmouseup = trigger.ontouchend = () => clearTimeout(pressTimer);
 
         document.getElementById('close-settings').onclick = () => {
             ui.settings.classList.add('hidden');
             ui.main.classList.remove('hidden');
             renderList();
+            if (state.mode === 'integration') pollIntegration();
         };
 
         let tapTimer;
         let taps = 0;
         const handleTap = (e) => {
             if(e.type === 'touchstart') e.preventDefault();
+            if(state.mode !== 'manual') return; 
             taps++;
             clearTimeout(tapTimer);
             tapTimer = setTimeout(() => {
@@ -406,22 +515,30 @@
             };
         });
 
-        const executeGeneration = async (wordIndex) => {
+        const executeGeneration = async (inputValue, isIntegration = false) => {
             const apiKey = document.getElementById('api-key').value.trim();
             const voiceId = document.getElementById('voice-id').value.trim();
+            
             let template = document.getElementById('template-text').value.trim();
             if (!template) template = "I knew you would pick [X]";
             
-            const wordsList = document.getElementById('word-list').value;
-            const words = wordsList ? wordsList.split('\n').map(w => w.trim()).filter(w => w) : [];
+            let selectedWord = "nothing";
 
-            if (!apiKey || !voiceId || words.length === 0) {
-                logErr('Missing configuration. Check API Key, Voice ID, or Word List.');
+            if (isIntegration) {
+                selectedWord = inputValue;
+            } else {
+                const wordsList = document.getElementById('word-list').value;
+                const words = wordsList ? wordsList.split('\n').map(w => w.trim()).filter(w => w) : [];
+                const wordIndex = parseInt(inputValue) || 1;
+                const safeIndex = (wordIndex > 0 && wordIndex <= words.length) ? wordIndex - 1 : 0;
+                if (words.length > 0) selectedWord = words[safeIndex];
+            }
+
+            if (!apiKey || !voiceId) {
+                logErr('Missing API Key or Voice ID configuration.');
                 return;
             }
 
-            const safeIndex = (wordIndex > 0 && wordIndex <= words.length) ? wordIndex - 1 : 0;
-            const selectedWord = words[safeIndex];
             const finalSpeech = template.replace(/\[X\]/g, selectedWord);
 
             try {
@@ -431,7 +548,7 @@
                     body: JSON.stringify({ text: finalSpeech, model_id: "eleven_multilingual_v2" })
                 });
 
-                if (!res.ok) throw new Error(`ElevenLabs API Error: ${res.status}`);
+                if (!res.ok) throw new Error(`API Error: ${res.status}`);
                 
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
@@ -441,16 +558,6 @@
                     state.target.audioUrl = url;
                     state.target.duration = Math.ceil(tempAudio.duration);
                     state.target.isReady = true;
-                    
-                    const dot = document.getElementById('dot-target');
-                    if(dot) dot.classList.add('dot-ready');
-                    
-                    const info = document.getElementById('info-target');
-                    if(info) {
-                        const base = new Date(document.getElementById('base-date').value || Date.now());
-                        info.textContent = `Today ${formatTime(base)} \u2022 ${formatDur(state.target.duration)}`;
-                    }
-                    
                     renderList();
                 };
             } catch (err) {
@@ -462,8 +569,7 @@
             e.stopPropagation();
             ui.t9.classList.add('hidden');
             ui.t9.classList.remove('flex');
-            const idx = parseInt(state.t9Input) || 1;
-            executeGeneration(idx);
+            executeGeneration(state.t9Input, false);
         };
 
         const now = new Date();
