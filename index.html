@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; overscroll-behavior: none; background-color: #000; color: #fff; font-family: system-ui, -apple-system, sans-serif; }
+        * { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col absolute top-0 left-0">
+    <div id="main-ui" class="flex-1 flex flex-col w-full h-full relative z-10 bg-black">
+        <div class="w-full flex justify-between items-center px-6 py-5 border-b border-gray-900">
+            <span id="secret-trigger" class="text-2xl font-semibold tracking-tight select-none">Recordings</span>
+        </div>
+        <div id="recording-list" class="flex-1 overflow-y-auto px-6 py-2">
+        </div>
+        <div class="w-full py-8 flex justify-center border-t border-gray-900">
+            <div class="w-16 h-16 rounded-full border-4 border-gray-800 flex items-center justify-center">
+                <div class="w-14 h-14 rounded-full bg-red-600"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings-ui" class="hidden absolute top-0 left-0 w-full h-full bg-black z-50 flex-col overflow-y-auto">
+        <div class="sticky top-0 bg-black/90 backdrop-blur-md z-10 px-6 py-5 flex justify-between items-center border-b border-gray-900">
+            <span class="text-xl font-semibold">Configuration</span>
+            <button id="close-settings" class="text-blue-500 font-medium tracking-wide">Done</button>
+        </div>
+        
+        <div class="px-6 py-6 flex flex-col gap-8">
+            <div class="flex flex-col gap-4">
+                <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">ElevenLabs API</span>
+                <input type="password" id="api-key" placeholder="API Key" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none placeholder-gray-500">
+                <button id="record-btn" class="w-full bg-[#1c1c1e] text-blue-500 rounded-xl px-4 py-3.5 font-medium border border-gray-800">Tap to Record Voice Clone</button>
+                <input type="text" id="voice-id" placeholder="Voice ID" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none placeholder-gray-500">
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Prediction</span>
+                <input type="text" id="prediction-text" placeholder="Input Prediction" class="w-full bg-[#1c1c1e] rounded-xl px-4 py-3.5 text-white outline-none placeholder-gray-500">
+                <button id="generate-btn" class="w-full bg-white text-black rounded-xl px-4 py-3.5 font-semibold">Prepare Audio</button>
+                <div id="status" class="text-center text-sm font-medium text-gray-500 tracking-wide h-5"></div>
+            </div>
+
+            <div id="error-console" class="hidden flex-col gap-3 p-4 bg-red-950/20 border border-red-900/50 rounded-xl">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-red-500 uppercase tracking-wider">Error Log</span>
+                    <button id="clear-errors" class="text-xs text-red-400 font-medium">Clear</button>
+                </div>
+                <div id="error-log-content" class="text-xs font-mono text-red-400 max-h-32 overflow-y-auto flex flex-col gap-1.5 break-words"></div>
+            </div>
+
+            <div class="flex flex-col gap-4 mb-10">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Dummy Recordings</span>
+                    <button id="add-dummy-btn" class="text-blue-500 text-sm font-medium">+ Add</button>
+                </div>
+                <div id="dummy-settings-list" class="flex flex-col gap-3">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const mainUi = document.getElementById('main-ui');
+        const settingsUi = document.getElementById('settings-ui');
+        const secretTrigger = document.getElementById('secret-trigger');
+        const closeSettings = document.getElementById('close-settings');
+        const generateBtn = document.getElementById('generate-btn');
+        const recordBtn = document.getElementById('record-btn');
+        const recordingList = document.getElementById('recording-list');
+        const statusText = document.getElementById('status');
+        const dummySettingsList = document.getElementById('dummy-settings-list');
+        const addDummyBtn = document.getElementById('add-dummy-btn');
+        const errorConsole = document.getElementById('error-console');
+        const errorLogContent = document.getElementById('error-log-content');
+        const clearErrorsBtn = document.getElementById('clear-errors');
+
+        let pressTimer;
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        let predictions = [];
+        let dummies = [
+            { name: "Recording 003", duration: "01:14" },
+            { name: "Recording 002", duration: "00:45" },
+            { name: "Recording 001", duration: "02:05" }
+        ];
+
+        const logError = (msg) => {
+            errorConsole.classList.remove('hidden');
+            errorConsole.classList.add('flex');
+            const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
+            const logItem = document.createElement('div');
+            logItem.textContent = `[${time}] ${msg}`;
+            errorLogContent.appendChild(logItem);
+            errorLogContent.scrollTop = errorLogContent.scrollHeight;
+        };
+
+        clearErrorsBtn.addEventListener('click', () => {
+            errorLogContent.innerHTML = '';
+            errorConsole.classList.add('hidden');
+            errorConsole.classList.remove('flex');
+        });
+
+        const renderMainList = () => {
+            recordingList.innerHTML = '';
+            
+            predictions.forEach(p => {
+                recordingList.appendChild(createRecordingElement(p.name, p.date, p.duration, p.audioUrl, true));
+            });
+
+            dummies.forEach(d => {
+                recordingList.appendChild(createRecordingElement(d.name, 'Yesterday', d.duration, null, false));
+            });
+        };
+
+        const createRecordingElement = (name, dateText, durationText, audioUrl, isReal) => {
+            const item = document.createElement('div');
+            item.className = 'w-full flex justify-between items-center py-3.5 border-b border-gray-900';
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'flex flex-col';
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'font-medium text-[17px] tracking-wide';
+            titleSpan.textContent = name;
+            
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'text-gray-500 text-[13px] mt-0.5';
+            dateSpan.textContent = `${dateText} \u2022 ${durationText}`;
+            
+            titleDiv.appendChild(titleSpan);
+            titleDiv.appendChild(dateSpan);
+            
+            const rightContainer = document.createElement('div');
+            rightContainer.className = 'flex items-center justify-center w-10 h-10';
+
+            if (isReal && audioUrl) {
+                const playBtn = document.createElement('button');
+                playBtn.className = 'w-0 h-0 border-t-[7px] border-t-transparent border-l-[12px] border-l-white border-b-[7px] border-b-transparent ml-2 outline-none';
+                
+                let audio = new Audio(audioUrl);
+                let isPlaying = false;
+                
+                playBtn.onclick = () => {
+                    if (isPlaying) {
+                        audio.pause();
+                        audio.currentTime = 0;
+                        playBtn.className = 'w-0 h-0 border-t-[7px] border-t-transparent border-l-[12px] border-l-white border-b-[7px] border-b-transparent ml-2 outline-none';
+                    } else {
+                        audio.play();
+                        playBtn.className = 'w-3 h-3 bg-white ml-2 outline-none rounded-sm';
+                    }
+                    isPlaying = !isPlaying;
+                };
+
+                audio.onended = () => {
+                    isPlaying = false;
+                    playBtn.className = 'w-0 h-0 border-t-[7px] border-t-transparent border-l-[12px] border-l-white border-b-[7px] border-b-transparent ml-2 outline-none';
+                };
+
+                rightContainer.appendChild(playBtn);
+            } else {
+                const fakeTime = document.createElement('span');
+                fakeTime.className = 'text-gray-600 text-sm';
+                fakeTime.textContent = '--:--';
+                rightContainer.appendChild(fakeTime);
+            }
+
+            item.appendChild(titleDiv);
+            item.appendChild(rightContainer);
+            return item;
+        };
+
+        const renderDummySettings = () => {
+            dummySettingsList.innerHTML = '';
+            dummies.forEach((dummy, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex gap-2 w-full';
+
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.value = dummy.name;
+                nameInput.className = 'flex-1 bg-[#1c1c1e] rounded-lg px-3 py-3 text-white outline-none text-sm';
+                nameInput.onchange = (e) => { dummies[index].name = e.target.value; };
+
+                const durInput = document.createElement('input');
+                durInput.type = 'text';
+                durInput.value = dummy.duration;
+                durInput.className = 'w-20 bg-[#1c1c1e] rounded-lg px-3 py-3 text-white outline-none text-sm text-center';
+                durInput.onchange = (e) => { dummies[index].duration = e.target.value; };
+
+                const delBtn = document.createElement('button');
+                delBtn.innerHTML = '✕';
+                delBtn.className = 'w-10 bg-red-900/30 text-red-500 rounded-lg flex items-center justify-center';
+                delBtn.onclick = () => {
+                    dummies.splice(index, 1);
+                    renderDummySettings();
+                };
+
+                row.appendChild(nameInput);
+                row.appendChild(durInput);
+                row.appendChild(delBtn);
+                dummySettingsList.appendChild(row);
+            });
+        };
+
+        addDummyBtn.addEventListener('click', () => {
+            const nextNum = dummies.length + predictions.length + 1;
+            const paddedNum = String(nextNum).padStart(3, '0');
+            dummies.unshift({ name: `Recording ${paddedNum}`, duration: "00:00" });
+            renderDummySettings();
+        });
+
+        const openSettings = () => {
+            mainUi.classList.add('hidden');
+            settingsUi.classList.remove('hidden');
+            renderDummySettings();
+        };
+
+        secretTrigger.addEventListener('touchstart', () => { pressTimer = setTimeout(openSettings, 2000); });
+        secretTrigger.addEventListener('touchend', () => clearTimeout(pressTimer));
+        secretTrigger.addEventListener('mousedown', () => { pressTimer = setTimeout(openSettings, 2000); });
+        secretTrigger.addEventListener('mouseup', () => clearTimeout(pressTimer));
+
+        closeSettings.addEventListener('click', () => {
+            settingsUi.classList.add('hidden');
+            mainUi.classList.remove('hidden');
+            renderMainList();
+        });
+
+        recordBtn.addEventListener('click', async () => {
+            const apiKey = document.getElementById('api-key').value;
+            if (!apiKey) {
+                statusText.textContent = "API Key required";
+                logError("API Key is missing when trying to record clone.");
+                return;
+            }
+
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = e => {
+                        if (e.data.size > 0) audioChunks.push(e.data);
+                    };
+
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        stream.getTracks().forEach(track => track.stop());
+                        await uploadVoiceClone(apiKey, audioBlob);
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    recordBtn.textContent = "Recording... Tap to Stop";
+                    recordBtn.classList.replace('text-blue-500', 'text-red-500');
+                    statusText.textContent = "Speak for 5 to 10 seconds";
+                } catch (err) {
+                    statusText.textContent = "Mic access denied";
+                    logError(`Microphone access error: ${err.message || 'Permission denied'}`);
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.textContent = "Processing Clone...";
+                recordBtn.classList.replace('text-red-500', 'text-blue-500');
+                recordBtn.disabled = true;
+            }
+        });
+
+        async function uploadVoiceClone(apiKey, blob) {
+            statusText.textContent = "Uploading...";
+            const formData = new FormData();
+            formData.append('name', 'Live Clone ' + Date.now());
+            formData.append('files', blob, 'sample.webm');
+
+            try {
+                const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+                    method: 'POST',
+                    headers: { 'xi-api-key': apiKey },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail?.message || errData.detail || "Upload failed with status " + response.status);
+                }
+
+                const data = await response.json();
+                document.getElementById('voice-id').value = data.voice_id;
+                statusText.textContent = "Voice cloned!";
+            } catch (err) {
+                statusText.textContent = "Failed to clone";
+                logError(`Voice clone error: ${err.message}`);
+            } finally {
+                recordBtn.textContent = "Tap to Record Voice Clone";
+                recordBtn.disabled = false;
+            }
+        }
+
+        generateBtn.addEventListener('click', async () => {
+            const apiKey = document.getElementById('api-key').value;
+            const voiceId = document.getElementById('voice-id').value;
+            const text = document.getElementById('prediction-text').value;
+
+            if (!apiKey || !voiceId || !text) {
+                statusText.textContent = "Complete all fields";
+                logError("Generation failed: Missing API Key, Voice ID, or Text input.");
+                return;
+            }
+
+            statusText.textContent = "Processing...";
+            generateBtn.disabled = true;
+
+            try {
+                const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'audio/mpeg',
+                        'xi-api-key': apiKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        model_id: "eleven_multilingual_v2"
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail?.message || errData.detail || "Request failed with status " + response.status);
+                }
+
+                const blob = await response.blob();
+                const audioUrl = URL.createObjectURL(blob);
+                
+                const nextNum = dummies.length + predictions.length + 1;
+                const paddedNum = String(nextNum).padStart(3, '0');
+                
+                const newPrediction = {
+                    name: `Recording ${paddedNum}`,
+                    date: 'Today',
+                    duration: '00:04',
+                    audioUrl: audioUrl
+                };
+
+                predictions.unshift(newPrediction);
+                renderMainList();
+
+                statusText.textContent = "Ready!";
+                document.getElementById('prediction-text').value = '';
+            } catch (error) {
+                statusText.textContent = "Connection error";
+                logError(`Generation error: ${error.message}`);
+            } finally {
+                generateBtn.disabled = false;
+            }
+        });
+
+        renderMainList();
+    </script>
+</body>
+</html>
