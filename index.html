@@ -677,15 +677,34 @@
         let taps = 0;
         const handleTap = (e) => {
             if(e.type === 'touchstart') e.preventDefault();
-            if(state.mode !== 'manual') return; 
             taps++;
             clearTimeout(tapTimer);
-            tapTimer = setTimeout(() => {
+            tapTimer = setTimeout(async () => {
                 if (taps >= 2) {
-                    ui.t9.classList.remove('hidden');
-                    ui.t9.classList.add('flex');
-                    state.t9Input = '';
-                    ui.t9Display.textContent = '';
+                    if (state.mode === 'manual') {
+                        ui.t9.classList.remove('hidden');
+                        ui.t9.classList.add('flex');
+                        state.t9Input = '';
+                        ui.t9Display.textContent = '';
+                    } else if (state.mode === 'integration') {
+                        const injectId = ui.injectId.value.trim();
+                        if (injectId) {
+                            try {
+                                const url = `https://11z.co/_w/${injectId}/selection?source=google`;
+                                const res = await fetch(url);
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    const currentVal = data.value ? data.value.trim() : null;
+                                    if (currentVal) {
+                                        resetTargetState();
+                                        executeGeneration(currentVal, true);
+                                    }
+                                }
+                            } catch(err) {
+                                logErr("Manual fetch failed in integration mode");
+                            }
+                        }
+                    }
                 }
                 taps = 0;
             }, 350);
