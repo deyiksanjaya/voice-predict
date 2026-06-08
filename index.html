@@ -10,6 +10,8 @@
         .recording-item { transition: background-color 0.2s; }
         .recording-item:active { background-color: #111; }
         .t9-btn:active { background-color: rgba(255,255,255,0.2); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="w-screen h-screen flex flex-col absolute top-0 left-0">
@@ -50,11 +52,14 @@
     </div>
 
     <div id="settings-ui" class="hidden absolute top-0 left-0 w-full h-full bg-black z-50 flex-col overflow-y-auto">
-        <div class="sticky top-0 bg-black/90 backdrop-blur-md z-10 px-6 py-5 flex justify-between items-center border-b border-gray-900">
+        <div class="sticky top-0 bg-black/90 backdrop-blur-md z-20 px-6 py-5 flex justify-between items-center border-b border-gray-900">
             <span class="text-xl font-semibold">Configuration</span>
             <button id="close-settings" class="text-blue-500 font-medium tracking-wide">Done</button>
         </div>
         
+        <div id="routine-carousel" class="flex gap-3 px-6 py-4 overflow-x-auto hide-scrollbar snap-x border-b border-gray-900 bg-[#0a0a0c]">
+        </div>
+
         <div class="px-6 py-6 flex flex-col gap-8 mb-10">
             
             <div class="flex flex-col gap-4">
@@ -151,6 +156,7 @@
         const ui = {
             main: document.getElementById('main-ui'),
             settings: document.getElementById('settings-ui'),
+            carousel: document.getElementById('routine-carousel'),
             t9: document.getElementById('t9-ui'),
             t9Container: document.getElementById('t9-container'),
             t9Display: document.getElementById('t9-display'),
@@ -180,14 +186,35 @@
             "Four of Clubs", "Two of Hearts", "Seven of Diamonds", "Three of Clubs", "Four of Hearts", "Six of Diamonds", "Ace of Spades", "Five of Hearts", "Nine of Spades", "Two of Spades", "Queen of Hearts", "Three of Diamonds", "Queen of Clubs", "Eight of Hearts", "Six of Spades", "Five of Spades", "Nine of Hearts", "King of Clubs", "Two of Diamonds", "Jack of Hearts", "Three of Spades", "Eight of Spades", "Six of Hearts", "Ten of Clubs", "Five of Diamonds", "King of Diamonds", "Two of Clubs", "Three of Hearts", "Eight of Diamonds", "Five of Clubs", "King of Spades", "Jack of Diamonds", "Eight of Clubs", "Ten of Spades", "King of Hearts", "Jack of Clubs", "Seven of Spades", "Ten of Hearts", "Ace of Diamonds", "Four of Spades", "Seven of Hearts", "Four of Diamonds", "Ace of Clubs", "Nine of Clubs", "Jack of Spades", "Queen of Diamonds", "Seven of Clubs", "Queen of Spades", "Ten of Diamonds", "Six of Clubs", "Ace of Hearts", "Nine of Diamonds"
         ];
 
-        let state = {
-            mode: 'manual',
-            target: { duration: 4, audioUrl: null, isReady: false },
-            dummies: [
-                { name: 'Recording 003', duration: 45 },
-                { name: 'Recording 002', duration: 125 },
-                { name: 'Recording 001', duration: 74 }
+        let appState = {
+            activeIdx: 0,
+            routines: [
+                {
+                    name: "Card Routine",
+                    mode: "manual",
+                    injectId: "",
+                    customTitle: "",
+                    templateText: "I knew you would pick [X]",
+                    wordList: defaultMnemonica.join('\n')
+                }
             ],
+            global: {
+                apiKey: "",
+                voiceId: "",
+                baseDate: "",
+                noiseVolume: 30,
+                noiseIntensity: 40,
+                keypadPos: "right",
+                dummies: [
+                    { name: 'Recording 003', duration: 45 },
+                    { name: 'Recording 002', duration: 125 },
+                    { name: 'Recording 001', duration: 74 }
+                ]
+            }
+        };
+
+        let runtime = {
+            target: { duration: 4, audioUrl: null, isReady: false },
             audioCtx: null,
             activeAudio: null,
             activeNoise: null,
@@ -206,58 +233,56 @@
         };
 
         const saveState = () => {
-            const dataToSave = {
-                mode: state.mode,
-                dummies: state.dummies,
-                apiKey: ui.apiKey.value,
-                voiceId: ui.voiceId.value,
-                injectId: ui.injectId.value,
-                customTitle: ui.customTitle.value,
-                templateText: ui.templateText.value,
-                wordList: ui.wordList.value,
-                baseDate: ui.baseDate.value,
-                noiseVolume: ui.noiseVolume.value,
-                noiseIntensity: ui.noiseIntensity.value,
-                keypadPos: ui.keypadPos.value
-            };
-            localStorage.setItem('voicePredictorData', JSON.stringify(dataToSave));
+            const cur = appState.routines[appState.activeIdx];
+            cur.injectId = ui.injectId.value;
+            cur.customTitle = ui.customTitle.value;
+            cur.templateText = ui.templateText.value;
+            cur.wordList = ui.wordList.value;
+
+            appState.global.apiKey = ui.apiKey.value;
+            appState.global.voiceId = ui.voiceId.value;
+            appState.global.baseDate = ui.baseDate.value;
+            appState.global.noiseVolume = ui.noiseVolume.value;
+            appState.global.noiseIntensity = ui.noiseIntensity.value;
+            appState.global.keypadPos = ui.keypadPos.value;
+
+            localStorage.setItem('vpAppV3', JSON.stringify(appState));
         };
 
         const loadState = () => {
-            const savedData = localStorage.getItem('voicePredictorData');
+            const savedData = localStorage.getItem('vpAppV3');
             if (savedData) {
                 try {
-                    const parsed = JSON.parse(savedData);
-                    state.mode = parsed.mode || 'manual';
-                    state.dummies = parsed.dummies || state.dummies;
-                    ui.apiKey.value = parsed.apiKey || '';
-                    ui.voiceId.value = parsed.voiceId || '';
-                    ui.injectId.value = parsed.injectId || '';
-                    ui.customTitle.value = parsed.customTitle || '';
-                    ui.templateText.value = parsed.templateText || '';
-                    ui.wordList.value = parsed.wordList !== undefined ? parsed.wordList : defaultMnemonica.join('\n');
-                    ui.baseDate.value = parsed.baseDate || '';
-                    ui.noiseVolume.value = parsed.noiseVolume || 30;
-                    ui.noiseIntensity.value = parsed.noiseIntensity || 40;
-                    ui.keypadPos.value = parsed.keypadPos || 'right';
-                } catch (e) {
-                    ui.wordList.value = defaultMnemonica.join('\n');
-                }
-            } else {
-                ui.wordList.value = defaultMnemonica.join('\n');
-                ui.noiseVolume.value = 30;
-                ui.noiseIntensity.value = 40;
-                ui.keypadPos.value = 'right';
+                    appState = JSON.parse(savedData);
+                } catch (e) {}
             }
 
-            if (!ui.baseDate.value) {
+            if (!appState.global.baseDate) {
                 const now = new Date();
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                ui.baseDate.value = now.toISOString().slice(0,16);
+                appState.global.baseDate = now.toISOString().slice(0,16);
             }
 
-            applyModeUI();
+            ui.apiKey.value = appState.global.apiKey;
+            ui.voiceId.value = appState.global.voiceId;
+            ui.baseDate.value = appState.global.baseDate;
+            ui.noiseVolume.value = appState.global.noiseVolume;
+            ui.noiseIntensity.value = appState.global.noiseIntensity;
+            ui.keypadPos.value = appState.global.keypadPos;
+
+            populateRoutineData();
+            renderCarousel();
             applyKeypadPos();
+        };
+
+        const populateRoutineData = () => {
+            const cur = appState.routines[appState.activeIdx];
+            ui.injectId.value = cur.injectId || '';
+            ui.customTitle.value = cur.customTitle || '';
+            ui.templateText.value = cur.templateText || '';
+            ui.wordList.value = cur.wordList || '';
+            
+            applyModeUI(cur.mode);
         };
 
         const setupSaveListeners = () => {
@@ -268,8 +293,8 @@
             });
         };
 
-        const applyModeUI = () => {
-            if (state.mode === 'manual') {
+        const applyModeUI = (modeValue) => {
+            if (modeValue === 'manual') {
                 ui.modeBtnManual.classList.replace('text-gray-500', 'text-white');
                 ui.modeBtnManual.classList.add('bg-gray-800');
                 ui.modeBtnAuto.classList.replace('text-white', 'text-gray-500');
@@ -290,6 +315,87 @@
             }
         };
 
+        const renderCarousel = () => {
+            ui.carousel.innerHTML = '';
+            appState.routines.forEach((rt, idx) => {
+                const isAct = idx === appState.activeIdx;
+                
+                const card = document.createElement('div');
+                card.className = `flex-shrink-0 snap-center w-[140px] p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-2 ${isAct ? 'border-blue-500 bg-blue-900/10' : 'border-gray-800 bg-[#1c1c1e]'}`;
+                card.onclick = () => {
+                    if (idx !== appState.activeIdx) {
+                        appState.activeIdx = idx;
+                        resetTargetState();
+                        populateRoutineData();
+                        renderCarousel();
+                        saveState();
+                    }
+                };
+
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.value = rt.name;
+                nameInput.className = `bg-transparent outline-none text-sm font-medium w-full ${isAct ? 'text-blue-400' : 'text-gray-300'}`;
+                nameInput.onclick = (e) => e.stopPropagation();
+                nameInput.onchange = (e) => {
+                    appState.routines[idx].name = e.target.value;
+                    saveState();
+                };
+
+                const bottomRow = document.createElement('div');
+                bottomRow.className = 'flex justify-between items-center mt-1';
+
+                const modeIndicator = document.createElement('span');
+                modeIndicator.className = 'text-[10px] uppercase font-bold tracking-wider text-gray-500';
+                modeIndicator.textContent = rt.mode;
+
+                bottomRow.appendChild(modeIndicator);
+
+                if (appState.routines.length > 1) {
+                    const delBtn = document.createElement('button');
+                    delBtn.innerHTML = '✕';
+                    delBtn.className = 'text-gray-600 hover:text-red-500 text-xs px-2 py-1';
+                    delBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        appState.routines.splice(idx, 1);
+                        if (appState.activeIdx >= appState.routines.length) {
+                            appState.activeIdx = appState.routines.length - 1;
+                        }
+                        resetTargetState();
+                        populateRoutineData();
+                        renderCarousel();
+                        saveState();
+                    };
+                    bottomRow.appendChild(delBtn);
+                }
+
+                card.appendChild(nameInput);
+                card.appendChild(bottomRow);
+                ui.carousel.appendChild(card);
+            });
+
+            const addBtn = document.createElement('div');
+            addBtn.className = 'flex-shrink-0 snap-center w-[60px] rounded-2xl border border-dashed border-gray-700 flex items-center justify-center cursor-pointer hover:bg-gray-900 transition-all';
+            addBtn.innerHTML = '<span class="text-2xl font-light text-gray-500">+</span>';
+            addBtn.onclick = () => {
+                appState.routines.push({
+                    name: `Routine ${appState.routines.length + 1}`,
+                    mode: "manual",
+                    injectId: "",
+                    customTitle: "",
+                    templateText: "I knew you would pick [X]",
+                    wordList: ""
+                });
+                appState.activeIdx = appState.routines.length - 1;
+                resetTargetState();
+                populateRoutineData();
+                renderCarousel();
+                saveState();
+                ui.carousel.scrollLeft = ui.carousel.scrollWidth;
+            };
+            ui.carousel.appendChild(addBtn);
+        };
+
         const applyKeypadPos = () => {
             if (ui.keypadPos.value === 'right') {
                 ui.t9Container.classList.add('justify-end');
@@ -301,16 +407,18 @@
         };
 
         ui.modeBtnManual.onclick = () => {
-            state.mode = 'manual';
+            appState.routines[appState.activeIdx].mode = 'manual';
             resetTargetState();
-            applyModeUI();
+            applyModeUI('manual');
+            renderCarousel();
             saveState();
         };
 
         ui.modeBtnAuto.onclick = () => {
-            state.mode = 'integration';
+            appState.routines[appState.activeIdx].mode = 'integration';
             resetTargetState();
-            applyModeUI();
+            applyModeUI('integration');
+            renderCarousel();
             saveState();
         };
 
@@ -320,22 +428,22 @@
         };
 
         const initAudio = () => {
-            if (!state.audioCtx) state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+            if (!runtime.audioCtx) runtime.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (runtime.audioCtx.state === 'suspended') runtime.audioCtx.resume();
         };
 
         const createWhiteNoise = () => {
             initAudio();
-            const bufferSize = 2 * state.audioCtx.sampleRate;
-            const noiseBuffer = state.audioCtx.createBuffer(1, bufferSize, state.audioCtx.sampleRate);
+            const bufferSize = 2 * runtime.audioCtx.sampleRate;
+            const noiseBuffer = runtime.audioCtx.createBuffer(1, bufferSize, runtime.audioCtx.sampleRate);
             const output = noiseBuffer.getChannelData(0);
             for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
             
-            const noise = state.audioCtx.createBufferSource();
+            const noise = runtime.audioCtx.createBufferSource();
             noise.buffer = noiseBuffer;
             noise.loop = true;
             
-            const filter = state.audioCtx.createBiquadFilter();
+            const filter = runtime.audioCtx.createBiquadFilter();
             filter.type = 'lowpass';
             const rawIntensity = parseFloat(ui.noiseIntensity.value);
             const minFreq = 100;
@@ -343,7 +451,7 @@
             const mappedFreq = minFreq + (rawIntensity / 100) * (maxFreq - minFreq);
             filter.frequency.value = mappedFreq;
             
-            const gain = state.audioCtx.createGain();
+            const gain = runtime.audioCtx.createGain();
             const rawVol = parseFloat(ui.noiseVolume.value);
             const minVol = 0.001;
             const maxVol = 0.08;
@@ -352,20 +460,20 @@
             
             noise.connect(filter);
             filter.connect(gain);
-            gain.connect(state.audioCtx.destination);
+            gain.connect(runtime.audioCtx.destination);
             return { source: noise, filter: filter, gain: gain };
         };
 
         const stopPlayback = () => {
-            if (state.activeAudio) {
-                state.activeAudio.pause();
-                state.activeAudio.currentTime = 0;
+            if (runtime.activeAudio) {
+                runtime.activeAudio.pause();
+                runtime.activeAudio.currentTime = 0;
             }
-            if (state.activeNoise) {
-                try { state.activeNoise.source.stop(); } catch(e){}
+            if (runtime.activeNoise) {
+                try { runtime.activeNoise.source.stop(); } catch(e){}
             }
-            state.activeAudio = null;
-            state.activeNoise = null;
+            runtime.activeAudio = null;
+            runtime.activeNoise = null;
             document.querySelectorAll('.play-btn-active').forEach(btn => {
                 btn.className = 'w-0 h-0 border-t-[7px] border-t-transparent border-l-[12px] border-l-white border-b-[7px] border-b-transparent ml-2 outline-none';
                 btn.classList.remove('play-btn-active');
@@ -380,13 +488,13 @@
             stopPlayback();
             
             btnElement.className = 'play-btn-active w-3 h-3 bg-white ml-2 outline-none rounded-sm';
-            state.activeNoise = createWhiteNoise();
-            state.activeNoise.source.start();
+            runtime.activeNoise = createWhiteNoise();
+            runtime.activeNoise.source.start();
 
             if (url) {
-                state.activeAudio = new Audio(url);
-                state.activeAudio.play();
-                state.activeAudio.onended = stopPlayback;
+                runtime.activeAudio = new Audio(url);
+                runtime.activeAudio.play();
+                runtime.activeAudio.onended = stopPlayback;
             } else {
                 setTimeout(stopPlayback, durationSec * 1000);
             }
@@ -420,14 +528,15 @@
             ui.list.innerHTML = '';
             const base = new Date(ui.baseDate.value || Date.now());
             
-            const customTitle = ui.customTitle.value.trim();
-            const targetName = customTitle !== '' ? customTitle : `Recording ${String(state.dummies.length + 1).padStart(3, '0')}`;
+            const curRt = appState.routines[appState.activeIdx];
+            const customTitle = curRt.customTitle.trim();
+            const targetName = customTitle !== '' ? customTitle : `Recording ${String(appState.global.dummies.length + 1).padStart(3, '0')}`;
             
-            const targetRow = createListElement(targetName, 'Today', formatTime(base), state.target.duration, true, state.target.isReady, state.target.audioUrl);
+            const targetRow = createListElement(targetName, 'Today', formatTime(base), runtime.target.duration, true, runtime.target.isReady, runtime.target.audioUrl);
             ui.list.appendChild(targetRow);
 
             let currentOffset = base.getTime();
-            state.dummies.forEach((d) => {
+            appState.global.dummies.forEach((d) => {
                 currentOffset -= (Math.floor(Math.random() * 120) + 60) * 60000; 
                 const dDate = new Date(currentOffset);
                 const isSameDay = dDate.toDateString() === base.toDateString();
@@ -483,7 +592,7 @@
 
         const renderDummySettings = () => {
             ui.dummyList.innerHTML = '';
-            state.dummies.forEach((dummy, idx) => {
+            appState.global.dummies.forEach((dummy, idx) => {
                 const r = document.createElement('div');
                 r.className = 'flex gap-2 w-full';
 
@@ -491,7 +600,7 @@
                 n.type = 'text';
                 n.value = dummy.name;
                 n.className = 'flex-1 bg-[#1c1c1e] rounded-lg px-3 py-3 text-white outline-none text-sm';
-                n.onchange = e => { state.dummies[idx].name = e.target.value; saveState(); };
+                n.onchange = e => { appState.global.dummies[idx].name = e.target.value; saveState(); };
 
                 const d = document.createElement('input');
                 d.type = 'text';
@@ -500,7 +609,7 @@
                 d.onchange = e => {
                     const pts = e.target.value.split(':');
                     if(pts.length === 2) {
-                        state.dummies[idx].duration = (parseInt(pts[0])*60) + parseInt(pts[1]);
+                        appState.global.dummies[idx].duration = (parseInt(pts[0])*60) + parseInt(pts[1]);
                         saveState();
                     }
                 };
@@ -508,7 +617,7 @@
                 const del = document.createElement('button');
                 del.innerHTML = '✕';
                 del.className = 'w-10 bg-red-900/30 text-red-500 rounded-lg flex items-center justify-center';
-                del.onclick = () => { state.dummies.splice(idx, 1); renderDummySettings(); saveState(); };
+                del.onclick = () => { appState.global.dummies.splice(idx, 1); renderDummySettings(); saveState(); };
 
                 r.append(n, d, del);
                 ui.dummyList.appendChild(r);
@@ -516,8 +625,8 @@
         };
 
         document.getElementById('add-dummy-btn').onclick = () => {
-            const nextNum = state.dummies.length + 1;
-            state.dummies.unshift({ name: `Recording ${String(nextNum).padStart(3, '0')}`, duration: 0 });
+            const nextNum = appState.global.dummies.length + 1;
+            appState.global.dummies.unshift({ name: `Recording ${String(nextNum).padStart(3, '0')}`, duration: 0 });
             renderDummySettings();
             saveState();
         };
@@ -623,14 +732,17 @@
         }
 
         const resetTargetState = () => {
-            state.target.isReady = false;
-            state.target.audioUrl = null;
+            runtime.target.isReady = false;
+            runtime.target.audioUrl = null;
             renderList();
         };
 
         const pollIntegration = async () => {
-            if (state.pollingTimer) clearInterval(state.pollingTimer);
-            const injectId = ui.injectId.value.trim();
+            if (runtime.pollingTimer) clearInterval(runtime.pollingTimer);
+            const cur = appState.routines[appState.activeIdx];
+            if (cur.mode !== 'integration') return;
+            
+            const injectId = cur.injectId.trim();
             if (!injectId) return;
 
             const url = `https://11z.co/_w/${injectId}/selection?source=google`;
@@ -638,18 +750,18 @@
                 const res = await fetch(url);
                 if (res.ok) {
                     const data = await res.json();
-                    state.lastFetchVal = data.value ? cleanData(data.value) : null;
+                    runtime.lastFetchVal = data.value ? cleanData(data.value) : null;
                 }
             } catch (e) {}
 
-            state.pollingTimer = setInterval(async () => {
+            runtime.pollingTimer = setInterval(async () => {
                 try {
                     const res = await fetch(url);
                     if (res.ok) {
                         const data = await res.json();
                         const currentVal = data.value ? cleanData(data.value) : null;
-                        if (currentVal && currentVal !== state.lastFetchVal) {
-                            clearInterval(state.pollingTimer);
+                        if (currentVal && currentVal !== runtime.lastFetchVal) {
+                            clearInterval(runtime.pollingTimer);
                             resetTargetState();
                             executeGeneration(currentVal, true);
                         }
@@ -662,7 +774,7 @@
         const trigger = document.getElementById('secret-trigger');
         trigger.onmousedown = trigger.ontouchstart = () => { 
             pressTimer = setTimeout(() => { 
-                if (state.pollingTimer) clearInterval(state.pollingTimer);
+                if (runtime.pollingTimer) clearInterval(runtime.pollingTimer);
                 ui.main.classList.add('hidden'); 
                 ui.settings.classList.remove('hidden'); 
                 renderDummySettings(); 
@@ -675,24 +787,26 @@
             ui.main.classList.remove('hidden');
             ui.injectResult.classList.add('hidden');
             renderList();
-            if (state.mode === 'integration') pollIntegration();
+            pollIntegration();
         };
 
         let tapTimer;
         let taps = 0;
         const handleTap = (e) => {
             if(e.type === 'touchstart') e.preventDefault();
+            const curMode = appState.routines[appState.activeIdx].mode;
+            
             taps++;
             clearTimeout(tapTimer);
             tapTimer = setTimeout(async () => {
                 if (taps >= 2) {
-                    if (state.mode === 'manual') {
+                    if (curMode === 'manual') {
                         ui.t9.classList.remove('hidden');
                         ui.t9.classList.add('flex');
-                        state.t9Input = '';
+                        runtime.t9Input = '';
                         ui.t9Display.textContent = '';
-                    } else if (state.mode === 'integration') {
-                        const injectId = ui.injectId.value.trim();
+                    } else if (curMode === 'integration') {
+                        const injectId = appState.routines[appState.activeIdx].injectId.trim();
                         if (injectId) {
                             try {
                                 const url = `https://11z.co/_w/${injectId}/selection?source=google`;
@@ -729,17 +843,18 @@
                 e.stopPropagation();
                 initAudio();
                 const v = btn.dataset.val;
-                if (v === 'clear') state.t9Input = '';
-                else state.t9Input += v;
-                ui.t9Display.textContent = state.t9Input;
+                if (v === 'clear') runtime.t9Input = '';
+                else runtime.t9Input += v;
+                ui.t9Display.textContent = runtime.t9Input;
             };
         });
 
         const executeGeneration = async (inputValue, isIntegration = false) => {
             const apiKey = ui.apiKey.value.trim();
             const voiceId = ui.voiceId.value.trim();
+            const curRt = appState.routines[appState.activeIdx];
             
-            let template = ui.templateText.value.trim();
+            let template = curRt.templateText.trim();
             if (!template) template = "I knew you would pick [X]";
             
             let selectedWord = "nothing";
@@ -747,7 +862,7 @@
             if (isIntegration) {
                 selectedWord = inputValue;
             } else {
-                const wordsList = ui.wordList.value;
+                const wordsList = curRt.wordList;
                 const words = wordsList ? wordsList.split('\n').map(w => w.trim()).filter(w => w) : [];
                 const wordIndex = parseInt(inputValue) || 1;
                 const safeIndex = (wordIndex > 0 && wordIndex <= words.length) ? wordIndex - 1 : 0;
@@ -775,9 +890,9 @@
                 
                 const tempAudio = new Audio(url);
                 tempAudio.onloadedmetadata = () => {
-                    state.target.audioUrl = url;
-                    state.target.duration = Math.ceil(tempAudio.duration);
-                    state.target.isReady = true;
+                    runtime.target.audioUrl = url;
+                    runtime.target.duration = Math.ceil(tempAudio.duration);
+                    runtime.target.isReady = true;
                     renderList();
                 };
             } catch (err) {
@@ -790,7 +905,7 @@
             ui.t9.classList.add('hidden');
             ui.t9.classList.remove('flex');
             resetTargetState();
-            executeGeneration(state.t9Input, false);
+            executeGeneration(runtime.t9Input, false);
         };
 
         loadState();
