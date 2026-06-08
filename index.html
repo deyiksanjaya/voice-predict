@@ -200,6 +200,11 @@
         let audioChunks = [];
         let isRecording = false;
 
+        const cleanData = (input) => {
+            if (!input) return '';
+            return input.replace(/[^\w\s]/g, '').toLowerCase().trim();
+        };
+
         const saveState = () => {
             const dataToSave = {
                 mode: state.mode,
@@ -541,7 +546,7 @@
                 const data = await res.json();
                 const val = data.value || '';
                 ui.injectResult.className = 'text-xs text-green-500 px-2 font-medium';
-                ui.injectResult.textContent = `Success: ${val}`;
+                ui.injectResult.textContent = `Success: ${cleanData(val)}`;
             } catch (err) {
                 ui.injectResult.className = 'text-xs text-red-500 px-2 font-medium';
                 ui.injectResult.textContent = `Error: ${err.message}`;
@@ -633,7 +638,7 @@
                 const res = await fetch(url);
                 if (res.ok) {
                     const data = await res.json();
-                    state.lastFetchVal = data.value ? data.value.trim() : null;
+                    state.lastFetchVal = data.value ? cleanData(data.value) : null;
                 }
             } catch (e) {}
 
@@ -642,7 +647,7 @@
                     const res = await fetch(url);
                     if (res.ok) {
                         const data = await res.json();
-                        const currentVal = data.value ? data.value.trim() : null;
+                        const currentVal = data.value ? cleanData(data.value) : null;
                         if (currentVal && currentVal !== state.lastFetchVal) {
                             clearInterval(state.pollingTimer);
                             resetTargetState();
@@ -694,7 +699,7 @@
                                 const res = await fetch(url);
                                 if (res.ok) {
                                     const data = await res.json();
-                                    const currentVal = data.value ? data.value.trim() : null;
+                                    const currentVal = data.value ? cleanData(data.value) : null;
                                     if (currentVal) {
                                         resetTargetState();
                                         executeGeneration(currentVal, true);
